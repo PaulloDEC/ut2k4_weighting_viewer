@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>UT2K4 Weight Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #2a2a2a;
+    --panel:     #1c1c1c;
+    --panel2:    #242424;
+    --border:    #3a3a3a;
+    --border2:   #444;
+    --text:      #d0d0d0;
+    --text-dim:  #777;
+    --text-head: #f0f0f0;
+    --accent:    #e8a020;
+    --accent2:   #c07010;
+    --active-bg: #2e2200;
+    --active-border: #e8a020;
+    --hover-bg:  #222;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  /* ── Layout ─────────────────────────────────────────── */
+  #app {
+    display: grid;
+    grid-template-columns: 220px 1fr 200px;
+    grid-template-rows: 40px 1fr;
+    height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  #header {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 16px;
+  }
+  #header .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  #header .logo span { color: var(--text-dim); }
+  #header-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    flex: 1;
+  }
+  #btn-load-model {
+    background: var(--accent);
+    color: #111;
+    border: none;
+    padding: 5px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  #btn-load-model:hover { background: #ffb830; }
+  #btn-verts {
+    background: var(--panel2);
+    color: var(--text-dim);
+    border: 1px solid var(--border2);
+    padding: 5px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  #btn-verts:hover { background: var(--hover-bg); color: var(--text); }
+  #btn-verts.active { background: var(--active-bg); color: var(--accent); border-color: var(--accent); }
+  #btn-wire {
+    background: var(--panel2);
+    color: var(--text-dim);
+    border: 1px solid var(--border2);
+    padding: 5px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  #btn-wire:hover { background: var(--hover-bg); color: var(--text); }
+  #btn-wire.active { background: var(--active-bg); color: var(--accent); border-color: var(--accent); }
+  #btn-solid, #btn-reset {
+    background: var(--panel2);
+    color: var(--text-dim);
+    border: 1px solid var(--border2);
+    padding: 5px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  #btn-solid:hover, #btn-reset:hover { background: var(--hover-bg); color: var(--text); }
+  #btn-solid.active { background: var(--active-bg); color: var(--accent); border-color: var(--accent); }
+  #btn-reset:hover { color: var(--accent); }
+  #file-input { display: none; }
+
+  /* ── Model list (left panel) ─────────────────────────── */
+  #model-panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 8px 10px 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #model-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .model-item {
+    padding: 7px 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-left: 2px solid transparent;
+    transition: background 0.1s;
+  }
+  .model-item:hover { background: var(--hover-bg); }
+  .model-item.active {
+    background: var(--active-bg);
+    border-left-color: var(--active-border);
+  }
+  .model-item .model-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-head);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .model-item .model-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+  #model-empty {
+    padding: 16px 10px;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: var(--mono);
+    line-height: 1.6;
+  }
+
+  /* ── Viewport ────────────────────────────────────────── */
+  #viewport {
+    position: relative;
+    background: #696969;
+    overflow: hidden;
+  }
+  #canvas-3d {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #drop-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.2s;
+  }
+  #drop-overlay.hidden { opacity: 0; }
+  #drop-overlay .drop-icon {
+    font-size: 48px;
+    opacity: 0.3;
+  }
+  #drop-overlay .drop-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  #drop-overlay .drop-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+  #viewport.drag-active::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 3px dashed var(--accent);
+    pointer-events: none;
+  }
+
+  /* Camera hint */
+  #cam-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    background: rgba(0,0,0,0.45);
+    padding: 4px 10px;
+    border-radius: 2px;
+    pointer-events: none;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Weight group panel (right) ──────────────────────── */
+  #group-panel {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #group-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .group-item {
+    padding: 6px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border-left: 2px solid transparent;
+    transition: background 0.1s;
+  }
+  .group-item:hover { background: var(--hover-bg); }
+  .group-item.active {
+    background: var(--active-bg);
+    border-left-color: var(--active-border);
+  }
+  .group-idx {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 18px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .group-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .group-item.active .group-name { color: var(--accent); }
+  #group-empty {
+    padding: 16px 10px;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+
+  /* Heatmap legend */
+  #legend {
+    flex-shrink: 0;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+  }
+  .slider-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    width: 24px;
+    flex-shrink: 0;
+  }
+  .slider-val {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+  }
+  #legend .legend-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  #legend-bar {
+    height: 10px;
+    border-radius: 1px;
+    background: linear-gradient(to right,
+      #0000ff, #00ffff, #00ff00, #ffff00, #ff0000);
+  }
+  .legend-ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #555; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div class="logo">UT2K4 <span>//</span> WEIGHT VIEWER</div>
+    <div id="header-status">No model loaded</div>
+    <button id="btn-load-model">+ LOAD MODEL(S)</button>
+    <button id="btn-verts" title="Toggle vertex dots">VERTS: OFF</button>
+    <button id="btn-wire" title="Toggle wireframe">WIRE: OFF</button>
+    <button id="btn-solid" title="Toggle back-face visibility">SOLID: OFF</button>
+    <button id="btn-reset" title="Reset camera view [R]">RESET VIEW</button>
+    <input type="file" id="file-input" accept=".glb" multiple>
+  </div>
+
+  <!-- Left: model list -->
+  <div id="model-panel">
+    <div class="panel-header">Models</div>
+    <div id="model-list">
+      <div id="model-empty">No models loaded.<br>Drop .glb files onto<br>the viewport or use<br>the load button.</div>
+    </div>
+  </div>
+
+  <!-- Centre: 3D viewport -->
+  <div id="viewport">
+    <canvas id="canvas-3d"></canvas>
+    <div id="drop-overlay">
+      <div class="drop-icon">⬡</div>
+      <div class="drop-text">DROP .GLB FILES HERE</div>
+      <div class="drop-sub">exported from the Blender weight group script</div>
+    </div>
+    <div id="cam-hint">LMB · rotate &nbsp;|&nbsp; RMB · pan &nbsp;|&nbsp; scroll · zoom &nbsp;|&nbsp; R · reset view</div>
+  </div>
+
+  <!-- Right: weight groups -->
+  <div id="group-panel">
+    <div class="panel-header">Weight Groups</div>
+    <div id="group-list">
+      <div id="group-empty">Load a model to see<br>weight groups.</div>
+    </div>
+    <div id="legend">
+      <div class="legend-label">Weight</div>
+      <div id="legend-bar"></div>
+      <div class="legend-ticks">
+        <span>0.0</span><span>0.5</span><span>1.0</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">BRI</span>
+        <input type="range" id="slider-brightness" min="0.2" max="2.0" step="0.01" value="1.0">
+        <span class="slider-val" id="val-brightness">1.0</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">SAT</span>
+        <input type="range" id="slider-saturation" min="0.0" max="2.0" step="0.01" value="1.0">
+        <span class="slider-val" id="val-saturation">1.0</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">CON</span>
+        <input type="range" id="slider-contrast" min="0.0" max="3.0" step="0.01" value="1.0">
+        <span class="slider-val" id="val-contrast">1.0</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Three.js r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// GLTFLoader (inlined minimal version sufficient for our use case)
+// We load it from a CDN script tag approach via dynamic injection
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GLTF_LOADER_URL = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App state
+// ─────────────────────────────────────────────────────────────────────────────
+
+const state = {
+  models: [],          // { name, groupNames, geometry (BufferGeometry) }
+  activeModel: -1,
+  activeGroup: 0,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Three.js setup
+// ─────────────────────────────────────────────────────────────────────────────
+
+const canvas  = document.getElementById('canvas-3d');
+const viewport = document.getElementById('viewport');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x696969);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1000);
+camera.position.set(0, 1, 3);
+
+// Lighting (subtle, so vertex colours read cleanly)
+const ambient = new THREE.AmbientLight(0xffffff, 0.85);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.3);
+dirLight.position.set(1, 2, 2);
+scene.add(dirLight);
+
+// Current mesh in scene
+let currentMesh = null;
+
+// Custom shader material — reads COLOR_N attribute by index
+const vertexShader = `
+  attribute float weight_active;
+  varying float vWeight;
+
+  void main() {
+    // Pass the raw weight value — NOT the heatmap colour — so the GPU
+    // interpolates the scalar weight linearly across each face first.
+    // The heatmap is then applied per-pixel in the fragment shader.
+    // This matches Blender's behaviour and produces correct gradients.
+    vWeight = weight_active;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const fragmentShader = `
+  varying float vWeight;
+  uniform float uBrightness;
+  uniform float uSaturation;
+  uniform float uContrast;
+
+  // Blender heatmap: 0=blue, 0.25=cyan, 0.5=green, 0.75=yellow, 1=red
+  // Desaturated slightly for easier viewing.
+  vec3 heatmap(float w) {
+    w = clamp(w, 0.0, 1.0);
+    vec3 c0, c1;
+    float t;
+    if (w < 0.25) {
+      c0 = vec3(0.18, 0.22, 0.52); c1 = vec3(0.18, 0.72, 0.80); t = w / 0.25;
+    } else if (w < 0.5) {
+      c0 = vec3(0.18, 0.72, 0.80); c1 = vec3(0.22, 0.78, 0.30); t = (w - 0.25) / 0.25;
+    } else if (w < 0.75) {
+      c0 = vec3(0.22, 0.78, 0.30); c1 = vec3(0.90, 0.85, 0.15); t = (w - 0.5) / 0.25;
+    } else {
+      c0 = vec3(0.90, 0.85, 0.15); c1 = vec3(0.90, 0.22, 0.12); t = (w - 0.75) / 0.25;
+    }
+    return mix(c0, c1, t);
+  }
+
+  void main() {
+    vec3 col = heatmap(vWeight);
+    // Apply saturation: lerp toward luminance grey
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(vec3(lum), col, uSaturation);
+    // Apply contrast: scale around mid-grey (0.5)
+    col = clamp((col - 0.5) * uContrast + 0.5, 0.0, 1.0);
+    // Apply brightness
+    col = clamp(col * uBrightness, 0.0, 1.0);
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+// Colour adjustment controls state
+const colorControls = { brightness: 1.0, saturation: 1.0, contrast: 1.0 };
+
+function updateColorUniforms() {
+  if (currentMesh && currentMesh.material.uniforms) {
+    currentMesh.material.uniforms.uBrightness.value = colorControls.brightness;
+    currentMesh.material.uniforms.uSaturation.value = colorControls.saturation;
+    currentMesh.material.uniforms.uContrast.value   = colorControls.contrast;
+  }
+}
+
+function makeMaterial() {
+  return new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uBrightness:  { value: colorControls.brightness },
+      uSaturation:  { value: colorControls.saturation },
+      uContrast:    { value: colorControls.contrast },
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Orbit controls (manual implementation — no import needed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const orbit = {
+  theta: 0, phi: Math.PI / 2.5,
+  radius: 3,
+  minRadius: 0.1,
+  maxRadius: 100,
+  target: new THREE.Vector3(0, 0.8, 0),
+  dragging: false, panning: false,
+  lastX: 0, lastY: 0,
+};
+
+function orbitUpdate() {
+  const x = orbit.target.x + orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
+  const y = orbit.target.y + orbit.radius * Math.cos(orbit.phi);
+  const z = orbit.target.z + orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
+  camera.position.set(x, y, z);
+  camera.lookAt(orbit.target);
+}
+orbitUpdate();
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0) orbit.dragging = true;
+  if (e.button === 2) orbit.panning  = true;
+  orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+});
+window.addEventListener('mouseup', () => { orbit.dragging = false; orbit.panning = false; });
+window.addEventListener('mousemove', e => {
+  const dx = e.clientX - orbit.lastX;
+  const dy = e.clientY - orbit.lastY;
+  orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+  if (orbit.dragging) {
+    orbit.theta -= dx * 0.005;
+    orbit.phi   = Math.max(0.05, Math.min(Math.PI - 0.05, orbit.phi + dy * 0.005));
+    orbitUpdate();
+  }
+  if (orbit.panning) {
+    const right = new THREE.Vector3();
+    const up    = new THREE.Vector3();
+    camera.getWorldDirection(up); up.negate();
+    right.crossVectors(camera.up, up).normalize();
+    const upDir = new THREE.Vector3(0,1,0);
+    const speed = orbit.radius * 0.001;
+    orbit.target.addScaledVector(right, dx * speed);
+    orbit.target.addScaledVector(upDir, dy * speed);
+    orbitUpdate();
+  }
+});
+canvas.addEventListener('wheel', e => {
+  // Logarithmic zoom — speed proportional to current distance
+  const zoomFactor = 1.0 + Math.sign(e.deltaY) * 0.08;
+  orbit.radius = Math.max(orbit.minRadius, Math.min(orbit.maxRadius, orbit.radius * zoomFactor));
+  orbitUpdate();
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Resize
+// ─────────────────────────────────────────────────────────────────────────────
+
+function onResize() {
+  const w = viewport.clientWidth;
+  const h = viewport.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(onResize).observe(viewport);
+onResize();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vertex dot overlay
+// ─────────────────────────────────────────────────────────────────────────────
+
+let vertDotsMesh = null;
+let vertsVisible = false;
+let wireMesh = null;
+let wireVisible = false;
+
+function buildVertDots(geo) {
+  if (vertDotsMesh) {
+    scene.remove(vertDotsMesh);
+    vertDotsMesh.geometry.dispose();
+    vertDotsMesh.material.dispose();
+    vertDotsMesh = null;
+  }
+  if (wireMesh) {
+    scene.remove(wireMesh);
+    wireMesh.geometry.dispose();
+    wireMesh.material.dispose();
+    wireMesh = null;
+  }
+  const dotGeo = new THREE.BufferGeometry();
+  dotGeo.setAttribute('position', geo.getAttribute('position').clone());
+
+  // Custom shader renders each point as a round anti-aliased disc,
+  // fixed size in screen pixels regardless of depth or zoom.
+  const dotMat = new THREE.ShaderMaterial({
+    uniforms: { pointSize: { value: 5.0 } },
+    vertexShader: `
+      uniform float pointSize;
+      void main() {
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = pointSize;
+      }
+    `,
+    fragmentShader: `
+      void main() {
+        // Discard corners to make a circle
+        vec2 uv = gl_PointCoord - vec2(0.5);
+        float r = dot(uv, uv);
+        if (r > 0.25) discard;
+        // Soft anti-aliased edge
+        float alpha = 1.0 - smoothstep(0.20, 0.25, r);
+        gl_FragColor = vec4(0.78, 0.78, 0.78, alpha);
+      }
+    `,
+    transparent: true,
+    depthTest: false,   // always draw on top so none are hidden by geometry
+  });
+
+  vertDotsMesh = new THREE.Points(dotGeo, dotMat);
+  vertDotsMesh.visible = vertsVisible;
+  scene.add(vertDotsMesh);
+}
+
+document.getElementById('btn-verts').addEventListener('click', () => {
+  vertsVisible = !vertsVisible;
+  const btn = document.getElementById('btn-verts');
+  btn.textContent = vertsVisible ? 'VERTS: ON' : 'VERTS: OFF';
+  btn.classList.toggle('active', vertsVisible);
+  if (vertDotsMesh) vertDotsMesh.visible = vertsVisible;
+});
+
+function buildWireframe(geo) {
+  if (wireMesh) {
+    scene.remove(wireMesh);
+    wireMesh.geometry.dispose();
+    wireMesh.material.dispose();
+    wireMesh = null;
+  }
+  const wireGeo = new THREE.WireframeGeometry(geo);
+  const wireMat = new THREE.LineBasicMaterial({
+    color: 0xffffff,
+    opacity: 0.18,
+    transparent: true,
+    depthTest: true,
+  });
+  wireMesh = new THREE.LineSegments(wireGeo, wireMat);
+  wireMesh.visible = wireVisible;
+  scene.add(wireMesh);
+}
+
+document.getElementById('btn-wire').addEventListener('click', () => {
+  wireVisible = !wireVisible;
+  const btn = document.getElementById('btn-wire');
+  btn.textContent = wireVisible ? 'WIRE: ON' : 'WIRE: OFF';
+  btn.classList.toggle('active', wireVisible);
+  if (wireMesh) wireMesh.visible = wireVisible;
+});
+
+// Solid mode: when ON, back faces are culled so verts/wireframe on the rear
+// are hidden. When OFF (default), DoubleSide is used so you can see through.
+let solidMode = false;
+
+document.getElementById('btn-solid').addEventListener('click', () => {
+  solidMode = !solidMode;
+  const btn = document.getElementById('btn-solid');
+  btn.textContent = solidMode ? 'SOLID: ON' : 'SOLID: OFF';
+  btn.classList.toggle('active', solidMode);
+  if (currentMesh) {
+    currentMesh.material.side = solidMode ? THREE.FrontSide : THREE.DoubleSide;
+    currentMesh.material.needsUpdate = true;
+  }
+  // Also hide vert dots and wireframe that are behind the model
+  if (vertDotsMesh) {
+    vertDotsMesh.material.depthTest = solidMode;
+    vertDotsMesh.material.needsUpdate = true;
+  }
+  if (wireMesh) {
+    wireMesh.renderOrder = solidMode ? 1 : 0;
+  }
+});
+
+document.getElementById('btn-reset').addEventListener('click', resetCamera);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render loop
+// ─────────────────────────────────────────────────────────────────────────────
+
+(function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Show a weight group on the active model
+// ─────────────────────────────────────────────────────────────────────────────
+
+function showGroup(groupIdx) {
+  if (state.activeModel < 0) return;
+  const model = state.models[state.activeModel];
+  if (!model) return;
+
+  state.activeGroup = groupIdx;
+
+  const geo = model.geometry;
+
+  // Attribute names: Three.js GLTFLoader may use _COLOR_0 or COLOR_0 depending
+  // on version. Try both forms, plus the lowercased variant.
+  function findColorAttr(idx) {
+    // Attributes injected as _WG_N (underscore = custom attribute per glTF spec).
+    // Three.js lowercases attribute names, so _WG_0 becomes _wg_0.
+    const candidates = [`_WG_${idx}`, `_wg_${idx}`, `WG_${idx}`, `wg_${idx}`];
+    for (const name of candidates) {
+      const a = geo.getAttribute(name);
+      if (a) return a;
+    }
+    console.warn(`No _WG attribute found for index ${idx}. Tried: ${candidates.join(', ')}`);
+    console.log('Available attributes:', Object.keys(geo.attributes));
+    return null;
+  }
+
+  const srcAttr = findColorAttr(groupIdx);
+  if (!srcAttr) {
+    console.warn(`No colour attribute found for index ${groupIdx}.`);
+    console.log('Available attributes:', Object.keys(geo.attributes));
+    return;
+  }
+
+  // Set weight_active — the scalar float attribute the shader reads
+  const cloned = srcAttr.clone();
+  cloned.needsUpdate = true;
+  geo.setAttribute('weight_active', cloned);
+
+  // Build mesh on first show, AFTER color_active is set
+  if (!currentMesh) {
+    currentMesh = new THREE.Mesh(geo, makeMaterial());
+    scene.add(currentMesh);
+    buildVertDots(geo);
+    buildWireframe(geo);
+    fitCamera(geo);
+    syncOverlayState();
+  } else {
+    // Force geometry attribute refresh
+    currentMesh.geometry.attributes.weight_active.needsUpdate = true;
+  }
+
+  // Update group list highlight
+  document.querySelectorAll('.group-item').forEach((el, i) => {
+    el.classList.toggle('active', i === groupIdx);
+  });
+
+  document.getElementById('header-status').textContent =
+    `${model.name}  ·  ${model.groupNames[groupIdx]}  (${groupIdx + 1} / ${model.groupNames.length})`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fit camera to bounding box of loaded geometry
+// ─────────────────────────────────────────────────────────────────────────────
+
+function fitCamera(geo) {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const centre = new THREE.Vector3();
+  box.getCenter(centre);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const maxDim = Math.max(size.x, size.y, size.z);
+
+  orbit.defaultTarget = centre.clone();
+  orbit.defaultRadius = maxDim * 1.8;
+  orbit.maxRadius     = maxDim * 12.0;
+  orbit.minRadius     = maxDim * 0.05;
+
+  orbit.target.copy(centre);
+  orbit.radius = orbit.defaultRadius;
+  orbit.theta  = 0;
+  orbit.phi    = Math.PI / 2.5;
+  orbitUpdate();
+}
+
+function resetCamera() {
+  if (!orbit.defaultTarget) return;
+  orbit.target.copy(orbit.defaultTarget);
+  orbit.radius = orbit.defaultRadius;
+  orbit.theta  = 0;
+  orbit.phi    = Math.PI / 2.5;
+  orbitUpdate();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load a model by index from state.models
+// ─────────────────────────────────────────────────────────────────────────────
+
+function activateModel(idx) {
+  state.activeModel = idx;
+  state.activeGroup = 0;
+
+  // Remove old mesh
+  if (currentMesh) {
+    scene.remove(currentMesh);
+    currentMesh.geometry.dispose();
+    currentMesh.material.dispose();
+    currentMesh = null;
+  }
+  if (vertDotsMesh) {
+    scene.remove(vertDotsMesh);
+    vertDotsMesh.geometry.dispose();
+    vertDotsMesh.material.dispose();
+    vertDotsMesh = null;
+  }
+  if (wireMesh) {
+    scene.remove(wireMesh);
+    wireMesh.geometry.dispose();
+    wireMesh.material.dispose();
+    wireMesh = null;
+  }
+
+  const model = state.models[idx];
+
+  // Rebuild group list
+  const groupList = document.getElementById('group-list');
+  const groupEmpty = document.getElementById('group-empty');
+  if (groupEmpty) groupEmpty.remove();
+  groupList.innerHTML = '';
+
+  model.groupNames.forEach((name, i) => {
+    const el = document.createElement('div');
+    el.className = 'group-item';
+    el.innerHTML = `<span class="group-idx">${i}</span><span class="group-name">${name}</span>`;
+    el.addEventListener('click', () => showGroup(i));
+    groupList.appendChild(el);
+  });
+
+  // Highlight model in list
+  document.querySelectorAll('.model-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+
+  // Show first group
+  showGroup(0);
+
+  // Hide drop overlay
+  document.getElementById('drop-overlay').classList.add('hidden');
+}
+
+// Reapply current toggle states to freshly built mesh/overlays
+function syncOverlayState() {
+  if (currentMesh) {
+    currentMesh.material.side = solidMode ? THREE.FrontSide : THREE.DoubleSide;
+    currentMesh.material.needsUpdate = true;
+  }
+  if (vertDotsMesh) {
+    vertDotsMesh.visible = vertsVisible;
+    vertDotsMesh.material.depthTest = solidMode;
+    vertDotsMesh.material.needsUpdate = true;
+  }
+  if (wireMesh) {
+    wireMesh.visible = wireVisible;
+    wireMesh.renderOrder = solidMode ? 1 : 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Parse GLB / glTF and extract geometry + group names
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function parseGLB(arrayBuffer, filename) {
+  return new Promise((resolve, reject) => {
+    const loader = new THREE.GLTFLoader();
+    loader.parse(arrayBuffer, '', gltf => {
+      // Find the first mesh
+      let meshObj = null;
+      gltf.scene.traverse(obj => {
+        if (!meshObj && obj.isMesh) meshObj = obj;
+      });
+
+      if (!meshObj) { reject(new Error('No mesh found in GLB')); return; }
+
+      const geo = meshObj.geometry;
+
+      // Extract group names from userData extras
+      // The Blender script embeds wg_names as a comma-separated string
+      let groupNames = null;
+
+      // Try mesh userData (glTF extras land here via Three.js GLTFLoader)
+      const extras = meshObj.userData;
+      if (extras && extras.wg_names) {
+        groupNames = extras.wg_names.split(',');
+      }
+
+      // Fallback: scan COLOR_N attributes and use generic names
+      if (!groupNames) {
+        const colorAttrs = Object.keys(geo.attributes)
+          .filter(k => /^COLOR_\d+$/.test(k))
+          .sort((a, b) => {
+            return parseInt(a.split('_')[1]) - parseInt(b.split('_')[1]);
+          });
+        groupNames = colorAttrs.map((_, i) => `Group ${i}`);
+      }
+
+      // Log all attributes for diagnosis
+      const allAttribs = Object.keys(geo.attributes);
+      const wgAttribs = allAttribs.filter(k => /^_?wg_\d/i.test(k));
+      console.log('All geometry attributes:', allAttribs.join(','));
+      console.log('WG attributes found:', wgAttribs.join(','));
+
+      // Verify at least one WG_ attribute exists
+      if (wgAttribs.length === 0) {
+        reject(new Error('No WG_ attributes found. Attributes present: ' + allAttribs.join(',')));
+        return;
+      }
+
+      resolve({ name: filename.replace(/\.glb$/i, ''), groupNames, geometry: geo });
+    }, reject);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add model to state + rebuild model list UI
+// ─────────────────────────────────────────────────────────────────────────────
+
+function addModel(model) {
+  state.models.push(model);
+  const idx = state.models.length - 1;
+
+  const list = document.getElementById('model-list');
+  const empty = document.getElementById('model-empty');
+  if (empty) empty.remove();
+
+  const el = document.createElement('div');
+  el.className = 'model-item';
+  el.innerHTML = `
+    <span class="model-name">${model.name}</span>
+    <span class="model-meta">${model.groupNames.length} groups</span>
+  `;
+  el.addEventListener('click', () => activateModel(idx));
+  list.appendChild(el);
+
+  // Auto-activate if first model
+  if (state.models.length === 1) activateModel(0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// File loading
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadFiles(files) {
+  for (const file of files) {
+    if (!file.name.toLowerCase().endsWith('.glb')) continue;
+    try {
+      const buf = await file.arrayBuffer();
+      const model = await parseGLB(buf, file.name);
+      addModel(model);
+    } catch(e) {
+      console.error(`Failed to load ${file.name}:`, e);
+      document.getElementById('header-status').textContent = `Error loading ${file.name}: ${e.message}`;
+    }
+  }
+}
+
+document.getElementById('btn-load-model').addEventListener('click', () => {
+  document.getElementById('file-input').click();
+});
+document.getElementById('file-input').addEventListener('change', e => {
+  loadFiles(Array.from(e.target.files));
+  e.target.value = '';
+});
+
+// Drag and drop onto viewport
+viewport.addEventListener('dragover', e => {
+  e.preventDefault();
+  viewport.classList.add('drag-active');
+});
+viewport.addEventListener('dragleave', () => viewport.classList.remove('drag-active'));
+viewport.addEventListener('drop', e => {
+  e.preventDefault();
+  viewport.classList.remove('drag-active');
+  loadFiles(Array.from(e.dataTransfer.files));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyboard shortcuts: left/right arrow to cycle groups
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  // R — reset camera
+  if (e.key === 'r' || e.key === 'R') {
+    resetCamera();
+    return;
+  }
+  if (state.activeModel < 0) return;
+  const model = state.models[state.activeModel];
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    showGroup((state.activeGroup + 1) % model.groupNames.length);
+    document.querySelectorAll('.group-item')[state.activeGroup]?.scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    showGroup((state.activeGroup - 1 + model.groupNames.length) % model.groupNames.length);
+    document.querySelectorAll('.group-item')[state.activeGroup]?.scrollIntoView({ block: 'nearest' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Boot: load GLTFLoader then ready
+// ─────────────────────────────────────────────────────────────────────────────
+
+loadScript(GLTF_LOADER_URL).then(() => {
+  console.log('UT2K4 Weight Viewer ready.');
+}).catch(e => {
+  document.getElementById('header-status').textContent = 'Failed to load GLTFLoader — check internet connection.';
+});
+
+document.getElementById('slider-brightness').addEventListener('input', e => {
+  colorControls.brightness = parseFloat(e.target.value);
+  document.getElementById('val-brightness').textContent = colorControls.brightness.toFixed(2);
+  updateColorUniforms();
+});
+
+document.getElementById('slider-saturation').addEventListener('input', e => {
+  colorControls.saturation = parseFloat(e.target.value);
+  document.getElementById('val-saturation').textContent = colorControls.saturation.toFixed(2);
+  updateColorUniforms();
+});
+
+document.getElementById('slider-contrast').addEventListener('input', e => {
+  colorControls.contrast = parseFloat(e.target.value);
+  document.getElementById('val-contrast').textContent = colorControls.contrast.toFixed(2);
+  updateColorUniforms();
+});
+</script>
+</body>
+</html>
